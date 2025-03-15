@@ -1,5 +1,13 @@
-import { Question, SkillCategory, CategoryScores, StudentInfo, Report } from './types';
+import { Question, SkillCategory, CategoryScores, Report } from './types';
 import { CATEGORY_DETAILS, SCORE_THRESHOLDS, QUESTION_WEIGHTS } from '../config/categories';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Student } from './studentStore';
+
+// Initialize the Google Generative AI with your API key
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
+
+// Get the generative model
+const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
 // Calculate scores based on answers
 export function calculateScores(
@@ -95,43 +103,129 @@ export function generateDefaultQuestions(category: SkillCategory): Question[] {
 }
 
 // Generate default report for fallback
-export function generateDefaultReport(scores: CategoryScores, studentInfo: StudentInfo): Report {
+export function generateDefaultReport(scores: CategoryScores, studentInfo: Student): Report {
   const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
   const performanceLevel = getPerformanceLevel(avgScore);
   
+  const executiveSummary = `${studentInfo.name} has demonstrated ${performanceLevel.toLowerCase()} proficiency across the assessed skill categories, with an average score of ${avgScore.toFixed(1)}. Based on their interest in ${studentInfo.domainInterest}, we recommend focusing on the areas highlighted below to enhance employability.`;
+  
+  const categoryAnalysis: Report['categoryAnalysis'] = {};
+  
+  // Generate analysis for each category
+  Object.entries(scores).forEach(([category, score]) => {
+    const level = getPerformanceLevel(score);
+    const details = CATEGORY_DETAILS[category as SkillCategory];
+    
+    categoryAnalysis[category] = {
+      score,
+      analysis: `${level} proficiency (${score.toFixed(1)}%). ${details?.description || ''}`,
+      recommendations: details?.focusAreas?.map(area => `Improve ${area} skills`) || []
+    };
+  });
+  
+  // Generate career suggestions based on domain interest
+  const careerPathSuggestions = [
+    `${studentInfo.domainInterest} Developer`,
+    `${studentInfo.domainInterest} Specialist`,
+    `${studentInfo.domainInterest} Consultant`,
+    'Technical Project Manager',
+    'Product Manager'
+  ];
+  
   return {
-    executiveSummary: `${studentInfo.name} has achieved an overall score of ${avgScore.toFixed(1)}%, which is rated as "${performanceLevel}". This assessment provides insights into strengths and areas for improvement across various skill categories.`,
-    categoryAnalysis: Object.fromEntries(
-      Object.entries(scores).map(([category, score]) => [
-        category,
-        {
-          score,
-          analysis: `Your performance in ${category} is ${getPerformanceLevel(score)}.`,
-          recommendations: [
-            `Focus on improving your ${CATEGORY_DETAILS[category as SkillCategory].focusAreas[0]} skills.`,
-            `Consider taking courses related to ${category}.`
-          ]
-        }
-      ])
-    ),
+    executiveSummary,
+    categoryAnalysis,
     recommendations: [
-      "Develop a structured learning plan",
-      "Focus on your weakest areas first",
-      "Seek mentorship in your field"
+      `Focus on improving skills in categories where you scored below 70%`,
+      `Consider pursuing certifications in ${studentInfo.domainInterest}`,
+      `Build a portfolio showcasing your ${studentInfo.domainInterest} projects`,
+      `Join communities and forums related to ${studentInfo.domainInterest}`
     ],
     learningResources: [
-      "Online courses on platforms like Coursera and Udemy",
-      "Industry-specific certifications",
-      "Books and articles on professional development"
+      'Coursera and Udemy courses',
+      'FreeCodeCamp tutorials',
+      'YouTube educational channels',
+      'Industry documentation and blogs'
     ],
-    careerPathSuggestions: [
-      studentInfo.targetRole,
-      "Related roles based on your strengths"
-    ],
+    careerPathSuggestions,
     actionPlan: {
-      month1: ["Assess current skills in detail", "Set specific learning goals", "Begin foundational courses"],
-      month2: ["Complete intermediate training", "Apply skills in practical projects", "Seek feedback from peers"],
-      month3: ["Specialize in advanced topics", "Network with industry professionals", "Update resume with new skills"]
+      'Immediate (1-3 months)': [
+        'Complete online courses in weak areas',
+        'Start building a portfolio project'
+      ],
+      'Short-term (3-6 months)': [
+        'Obtain relevant certifications',
+        'Contribute to open-source projects'
+      ],
+      'Long-term (6-12 months)': [
+        'Apply for internships or entry-level positions',
+        'Network with professionals in the industry'
+      ]
     }
   };
-} 
+}
+
+/**
+ * Generate questions for a specific skill category
+ */
+export async function generateQuestions(category: SkillCategory): Promise<string> {
+  try {
+    const prompt = `Generate 5 multiple-choice questions to assess a candidate's skills in ${category}. 
+    Each question should have 4 options (A, B, C, D) with one correct answer. 
+    Format the response as a JSON array of question objects, each with properties: 
+    question, options (array of 4 strings), and correctAnswer (index of correct option).`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    return text;
+  } catch (error) {
+    console.error('Error generating questions with Gemini:', error);
+    throw new Error('Failed to generate questions');
+  }
+}
+
+/**
+ * Generate a report based on assessment scores and student information
+ */
+export async function generateReport(scores: CategoryScores, studentInfo: Student): Promise<string> {
+  try {
+    const prompt = `Generate a detailed skills assessment report for a student with the following information:
+    
+    Student Information:
+    Name: ${studentInfo.name}
+    Email: ${studentInfo.email}
+    College: ${studentInfo.collegeName}
+    Degree: ${studentInfo.degree}
+    Passing Year: ${studentInfo.passingYear}
+    Domain Interest: ${studentInfo.domainInterest}
+    
+    Assessment Scores (out of 100):
+    ${Object.entries(scores)
+      .map(([category, score]) => `${category}: ${score}`)
+      .join('\n')}
+    
+    Please include:
+    1. An overall assessment of their skills
+    2. Strengths and areas for improvement
+    3. Recommended learning paths based on their domain interest
+    4. Career opportunities that match their skill profile
+    
+    Format the response as a detailed report with sections.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    return text;
+  } catch (error) {
+    console.error('Error generating report with Gemini:', error);
+    throw new Error('Failed to generate report');
+  }
+}
+
+export default {
+  generateQuestions,
+  generateReport
+}; 
