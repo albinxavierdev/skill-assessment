@@ -4,10 +4,10 @@ import { supabaseService } from '../../../../lib/supabaseService';
 // GET handler to fetch a specific student by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = context.params;
     console.log(`GET /api/students/${id}: Fetching student by ID`);
     
     const result = await supabaseService.getStudentById(id);
