@@ -4,22 +4,16 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAssessmentStore } from '../../lib/store';
 import Report from '../../components/Report';
+import ReportExitButton from '../../components/ReportExitButton';
 
 export default function ReportPage() {
   const router = useRouter();
   const { currentPhase, studentInfo, scores } = useAssessmentStore();
 
   useEffect(() => {
-    // If the user hasn't completed the form, redirect to the form page
-    if (!studentInfo) {
+    // If the user hasn't completed the assessment, redirect to the form page
+    if (!studentInfo || Object.keys(scores).length === 0) {
       router.push('/form');
-      return;
-    }
-    
-    // If the user hasn't completed the assessment, redirect to the assessment page
-    if (Object.keys(scores).length === 0) {
-      router.push('/assessment');
-      return;
     }
     
     // If the user is not in the report phase, redirect to the appropriate page
@@ -31,8 +25,7 @@ export default function ReportPage() {
         case 'student_info':
           router.push('/form');
           break;
-        case 'assessment':
-          router.push('/assessment');
+x          router.push('/assessment');
           break;
       }
     }
@@ -50,5 +43,12 @@ export default function ReportPage() {
     );
   }
 
-  return <Report />;
+  return (
+    <div className="relative">
+      <div className="absolute top-4 right-4 z-10">
+        <ReportExitButton />
+      </div>
+      <Report />
+    </div>
+  );
 } 

@@ -4,10 +4,36 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Student } from './studentStore';
 
 // Initialize the Google Generative AI with your API key
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// Get the generative model
-const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+// Get the generative model - using gemini-2.0-flash for better performance
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+// Rate limiting configuration
+const RATE_LIMIT = {
+  maxRequestsPerMinute: 10,
+  requestTimestamps: [] as number[],
+};
+
+// Helper function to implement rate limiting
+const checkRateLimit = (): boolean => {
+  const now = Date.now();
+  const oneMinuteAgo = now - 60000;
+  
+  // Remove timestamps older than 1 minute
+  RATE_LIMIT.requestTimestamps = RATE_LIMIT.requestTimestamps.filter(
+    timestamp => timestamp > oneMinuteAgo
+  );
+  
+  // Check if we've exceeded the rate limit
+  if (RATE_LIMIT.requestTimestamps.length >= RATE_LIMIT.maxRequestsPerMinute) {
+    return false;
+  }
+  
+  // Add current timestamp and allow the request
+  RATE_LIMIT.requestTimestamps.push(now);
+  return true;
+};
 
 // Calculate scores based on answers
 export function calculateScores(
@@ -170,10 +196,17 @@ export function generateDefaultReport(scores: CategoryScores, studentInfo: Stude
  */
 export async function generateQuestions(category: SkillCategory): Promise<string> {
   try {
+    // Check rate limit before making the API call
+    if (!checkRateLimit()) {
+      console.warn('Rate limit exceeded for Gemini API');
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+
     const prompt = `Generate 5 multiple-choice questions to assess a candidate's skills in ${category}. 
     Each question should have 4 options (A, B, C, D) with one correct answer. 
     Format the response as a JSON array of question objects, each with properties: 
-    question, options (array of 4 strings), and correctAnswer (index of correct option).`;
+    question, options (object with keys a, b, c, d), correct (the letter of the correct option), 
+    explanation (why the answer is correct), and focusArea (the specific skill being tested).`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -191,6 +224,12 @@ export async function generateQuestions(category: SkillCategory): Promise<string
  */
 export async function generateReport(scores: CategoryScores, studentInfo: Student): Promise<string> {
   try {
+    // Check rate limit before making the API call
+    if (!checkRateLimit()) {
+      console.warn('Rate limit exceeded for Gemini API');
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+
     const prompt = `Generate a detailed skills assessment report for a student with the following information:
     
     Student Information:
@@ -206,13 +245,26 @@ export async function generateReport(scores: CategoryScores, studentInfo: Studen
       .map(([category, score]) => `${category}: ${score}`)
       .join('\n')}
     
-    Please include:
-    1. An overall assessment of their skills
-    2. Strengths and areas for improvement
-    3. Recommended learning paths based on their domain interest
-    4. Career opportunities that match their skill profile
-    
-    Format the response as a detailed report with sections.`;
+    Format the response as a JSON object with the following structure:
+    {
+      "executiveSummary": "Overall analysis of performance across all categories",
+      "categoryAnalysis": {
+        "Category1": {
+          "score": 85,
+          "analysis": "Detailed analysis of performance in this category",
+          "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"]
+        },
+        // Repeat for each category
+      },
+      "recommendations": ["Overall recommendation 1", "Overall recommendation 2", "Overall recommendation 3"],
+      "learningResources": ["Resource 1 with link", "Resource 2 with link", "Resource 3 with link"],
+      "careerPathSuggestions": ["Career path 1", "Career path 2", "Career path 3"],
+      "actionPlan": {
+        "Immediate (1-3 months)": ["Action item 1", "Action item 2"],
+        "Short-term (3-6 months)": ["Action item 1", "Action item 2"],
+        "Long-term (6-12 months)": ["Action item 1", "Action item 2"]
+      }
+    }`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -225,7 +277,32 @@ export async function generateReport(scores: CategoryScores, studentInfo: Studen
   }
 }
 
+// Helper function to extract JSON from Gemini API response
+export function extractJsonFromResponse(text: string): any {
+  try {
+    // Try to parse the entire response as JSON
+    return JSON.parse(text);
+  } catch (e) {
+    // If that fails, try to extract JSON from the text
+    const jsonMatch = text.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (innerError) {
+        console.error('Error parsing extracted JSON:', innerError);
+        throw new Error('Failed to parse JSON from response');
+      }
+    } else {
+      console.error('No JSON found in response');
+      throw new Error('No JSON found in response');
+    }
+  }
+}
+
 export default {
   generateQuestions,
-  generateReport
+  generateReport,
+  extractJsonFromResponse,
+  generateDefaultQuestions,
+  generateDefaultReport
 }; 

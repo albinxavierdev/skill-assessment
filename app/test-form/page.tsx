@@ -3,11 +3,11 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function TestRedirect() {
+export default function TestFormRedirect() {
   const router = useRouter();
   
   useEffect(() => {
-    router.replace('/test');
+    router.replace('/test/form');
   }, [router]);
   
   return (

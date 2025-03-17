@@ -75,6 +75,11 @@ export default function Report() {
           throw new Error(data.error);
         }
         
+        // Log the source of the report (gemini or fallback)
+        if (data.source === 'fallback') {
+          console.log('Using fallback report generation due to API issues');
+        }
+        
         // The API returns a report with the ExtendedReport structure
         store.setReport(data.report);
         setLoading(false);

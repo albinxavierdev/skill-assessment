@@ -3,11 +3,11 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function TestRedirect() {
+export default function DbSchemaRedirect() {
   const router = useRouter();
   
   useEffect(() => {
-    router.replace('/test');
+    router.replace('/test/db-schema');
   }, [router]);
   
   return (

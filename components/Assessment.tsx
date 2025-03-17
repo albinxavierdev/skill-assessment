@@ -43,6 +43,7 @@ export default function Assessment() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
   const store = useAssessmentStore();
   const studentStore = useStudentStore();
@@ -102,6 +103,12 @@ export default function Assessment() {
         
         if (data.success && data.questions && data.questions.length > 0) {
           console.log('Successfully loaded questions:', data.questions.length);
+          
+          // Log the source of the questions (gemini or fallback)
+          if (data.source === 'fallback') {
+            console.log('Using fallback questions due to API issues');
+          }
+          
           // Update local state and store
           setQuestions(data.questions);
           setStoreQuestions({
@@ -183,6 +190,22 @@ export default function Assessment() {
     }
   };
 
+  // Handle exit assessment
+  const handleExitClick = () => {
+    setShowExitConfirmation(true);
+  };
+
+  const handleConfirmExit = () => {
+    // Reset the current phase to landing
+    store.setCurrentPhase('landing');
+    // Redirect to home page
+    window.location.href = '/';
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirmation(false);
+  };
+
   // Calculate progress
   const progress = ((SKILL_CATEGORIES.indexOf(currentCategory) * 5 + currentQuestionIndex + 1) / (SKILL_CATEGORIES.length * 5)) * 100;
   const isLastQuestion = currentQuestionIndex === questions.length - 1 && SKILL_CATEGORIES.indexOf(currentCategory) === SKILL_CATEGORIES.length - 1;
@@ -262,13 +285,47 @@ export default function Assessment() {
         </div>
       )}
 
+      {/* Exit Confirmation Modal */}
+      {showExitConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Exit Assessment?</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to exit? Your progress will not be saved.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleCancelExit}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmExit}
+                className="px-4 py-2 bg-red-600 border border-transparent rounded-md text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Exit Assessment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header with progress */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-2xl font-bold text-gray-900">Skill Assessment</h1>
-          <span className="text-sm font-medium text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1 rounded-full shadow-sm border border-blue-100">
-            {Math.round(progress)}% Complete
-          </span>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleExitClick}
+              className="text-sm font-medium text-red-600 hover:text-red-800 border border-red-200 hover:border-red-300 px-3 py-1 rounded-full shadow-sm bg-white transition-colors"
+            >
+              Exit Assessment
+            </button>
+            <span className="text-sm font-medium text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1 rounded-full shadow-sm border border-blue-100">
+              {Math.round(progress)}% Complete
+            </span>
+          </div>
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
           <div

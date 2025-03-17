@@ -12,6 +12,14 @@ export default function Skills2025Section() {
     return cleanup;
   }, []);
 
+  const handleDownload = async () => {
+    try {
+      await downloadSkills2025Report();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    }
+  };
+
   return (
     <div id="skills2025-section" className="max-w-6xl mx-auto px-6 py-16">
       <div className="relative">
@@ -191,7 +199,7 @@ export default function Skills2025Section() {
           {/* Download Button */}
           <div className="text-center">
             <button
-              onClick={downloadSkills2025Report}
+              onClick={handleDownload}
               className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

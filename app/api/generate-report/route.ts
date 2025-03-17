@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CATEGORY_DETAILS, SKILL_CATEGORIES } from '../../../config/categories';
 import { CategoryScores, Report } from '../../../lib/types';
+import { extractJsonFromResponse, generateDefaultReport } from '../../../lib/gemini';
+import { Student } from '../../../lib/studentStore';
 
 export async function POST(request: NextRequest) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+  const GEMINI_API_URL = process.env.GEMINI_API_URL;
 
   if (!GEMINI_API_KEY) {
     return NextResponse.json({ error: 'GEMINI_API_KEY is not set in environment variables' }, { status: 500 });
@@ -80,57 +82,83 @@ export async function POST(request: NextRequest) {
 
     console.log('Calling Gemini API with prompt:', prompt.substring(0, 100) + '...');
     
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt }
-            ]
-          }
-        ],
-        generation_config: {
-          temperature: 0.7,
-          top_k: 40,
-          top_p: 0.95,
-          max_output_tokens: 8192,
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error response:', errorText);
-      return NextResponse.json({ error: `Gemini API error: ${response.statusText}`, details: errorText }, { status: 500 });
-    }
-
-    const data = await response.json();
-    const geminiResponse = data.candidates[0].content.parts[0].text;
-    
-    // Extract JSON from the response (Gemini might wrap it in markdown code blocks)
-    const jsonMatch = geminiResponse.match(/```json\n([\s\S]*?)\n```/) || geminiResponse.match(/```\n([\s\S]*?)\n```/) || [null, geminiResponse];
-    const jsonString = jsonMatch[1] || geminiResponse;
-    
     try {
-      const report = JSON.parse(jsonString) as Report;
-      console.log('Successfully generated report');
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt }
+              ]
+            }
+          ],
+          generation_config: {
+            temperature: 0.7,
+            top_k: 40,
+            top_p: 0.95,
+            max_output_tokens: 8192,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Gemini API error response:', errorText);
+        
+        // Fall back to default report
+        console.log('Falling back to default report generation');
+        const defaultReport = generateDefaultReport(scores, studentInfo as Student);
+        
+        return NextResponse.json({ 
+          success: true, 
+          report: defaultReport,
+          source: 'fallback'
+        });
+      }
+
+      const data = await response.json();
+      const geminiResponse = data.candidates[0].content.parts[0].text;
+      
+      try {
+        // Use the helper function to extract JSON from the response
+        const report = extractJsonFromResponse(geminiResponse) as Report;
+        console.log('Successfully generated report');
+        
+        return NextResponse.json({ 
+          success: true, 
+          report,
+          source: 'gemini'
+        });
+      } catch (parseError) {
+        console.error('Error parsing JSON from Gemini response:', parseError);
+        console.error('Raw response:', geminiResponse);
+        
+        // Fall back to default report
+        console.log('Falling back to default report generation due to parsing error');
+        const defaultReport = generateDefaultReport(scores, studentInfo as Student);
+        
+        return NextResponse.json({ 
+          success: true, 
+          report: defaultReport,
+          source: 'fallback'
+        });
+      }
+    } catch (apiError) {
+      console.error('Error calling Gemini API:', apiError);
+      
+      // Fall back to default report
+      console.log('Falling back to default report generation due to API error');
+      const defaultReport = generateDefaultReport(scores, studentInfo as Student);
       
       return NextResponse.json({ 
         success: true, 
-        report
+        report: defaultReport,
+        source: 'fallback'
       });
-    } catch (parseError) {
-      console.error('Error parsing JSON from Gemini response:', parseError);
-      console.error('Raw response:', geminiResponse);
-      console.error('Extracted JSON string:', jsonString);
-      return NextResponse.json({ 
-        error: 'Failed to parse Gemini response', 
-        rawResponse: geminiResponse 
-      }, { status: 500 });
     }
   } catch (error) {
     console.error('Error generating report:', error);
