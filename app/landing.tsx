@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Skills2025Section from '../components/Skills2025Section';
 
 interface LandingPageProps {
@@ -8,6 +8,13 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onStart }: LandingPageProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
   // Add scroll animation effect
   useEffect(() => {
     const animateOnScroll = () => {
@@ -150,9 +157,130 @@ export default function LandingPage({ onStart }: LandingPageProps) {
   ];
 
   return (
-    <div className="space-y-24 py-10 overflow-hidden">
+    <div className="space-y-16 overflow-hidden">
+      {/* Navbar */}
+      <nav className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <div className="flex items-center cursor-pointer">
+                <img src="/logo.png" alt="SkillPrep Logo" className="h-10 mr-2" />
+              </div>
+              <div className="hidden md:flex ml-10 space-x-6">
+                <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
+                  How It Works
+                </a>
+                <a href="#features" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
+                  Features
+                </a>
+                <a href="#skills" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
+                  Skills
+                </a>
+                <a href="#skills2025" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
+                  Skills 2025
+                </a>
+                <a href="#testimonials" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
+                  Testimonials
+                </a>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={onStart}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Start Assessment
+              </button>
+              <div className="md:hidden">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                  aria-expanded="false"
+                  onClick={toggleMobileMenu}
+                >
+                  <span className="sr-only">Open main menu</span>
+                  {/* Icon when menu is closed */}
+                  <svg
+                    className={`${mobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                  {/* Icon when menu is open */}
+                  <svg
+                    className={`${mobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Mobile menu, show/hide based on menu state */}
+          <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:hidden`}>
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+              <a
+                href="#how-it-works"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                How It Works
+              </a>
+              <a
+                href="#features"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Features
+              </a>
+              <a
+                href="#skills"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Skills
+              </a>
+              <a
+                href="#skills2025"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Skills 2025
+              </a>
+              <a
+                href="#testimonials"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Testimonials
+              </a>
+            </div>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section */}
-      <div className="relative">
+      <div className="relative pt-8">
         {/* Enhanced background with animated gradient and patterns */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl -z-10 overflow-hidden">
           <div className="absolute inset-0 bg-grid-pattern opacity-30"></div>
@@ -200,7 +328,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       </div>
 
       {/* How It Works */}
-      <div className="max-w-6xl mx-auto px-6 relative animate-on-scroll">
+      <div id="how-it-works" className="max-w-6xl mx-auto px-6 relative animate-on-scroll pt-16 mt-16">
         {/* Background decorative elements */}
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-50 rounded-full opacity-30 -z-10 blur-3xl"></div>
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-50 rounded-full opacity-30 -z-10 blur-3xl"></div>
@@ -231,7 +359,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       </div>
 
       {/* Features Grid */}
-      <div className="max-w-6xl mx-auto px-6 relative animate-on-scroll">
+      <div id="features" className="max-w-6xl mx-auto px-6 relative animate-on-scroll pt-16 mt-16">
         {/* Background decorative elements */}
         <div className="absolute top-1/2 right-0 w-40 h-40 bg-dot-pattern opacity-20 -z-10 rounded-full"></div>
         <div className="absolute top-1/4 left-0 w-40 h-40 bg-dot-pattern opacity-20 -z-10 rounded-full"></div>
@@ -260,7 +388,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       </div>
 
       {/* Categories Section */}
-      <div className="max-w-6xl mx-auto px-6 relative animate-on-scroll">
+      <div id="skills" className="max-w-6xl mx-auto px-6 relative animate-on-scroll pt-16 mt-16">
         <div className="absolute inset-0 bg-grid-pattern opacity-5 -z-10"></div>
         
         <div className="text-center mb-6 relative">
@@ -286,10 +414,12 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       </div>
 
       {/* Skills 2025 Section */}
-      <Skills2025Section />
+      <div id="skills2025">
+        <Skills2025Section />
+      </div>
 
       {/* Testimonials */}
-      <div className="max-w-6xl mx-auto px-6 relative animate-on-scroll">
+      <div id="testimonials" className="max-w-6xl mx-auto px-6 relative animate-on-scroll pt-16 mt-16">
         {/* Background decorative elements */}
         <div className="absolute -top-20 -left-20 w-64 h-64 bg-blue-50 rounded-full opacity-30 -z-10 blur-3xl"></div>
         <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-50 rounded-full opacity-30 -z-10 blur-3xl"></div>
@@ -323,7 +453,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       </div>
 
       {/* CTA Section */}
-      <div className="max-w-6xl mx-auto px-6 animate-on-scroll">
+      <div className="max-w-6xl mx-auto px-6 animate-on-scroll pt-16 mt-16">
         <div className="relative overflow-hidden rounded-3xl">
           {/* Enhanced background with animated gradient */}
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 bg-animated-gradient"></div>

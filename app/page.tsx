@@ -35,39 +35,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div 
-                onClick={handleBackToHome}
-                className="flex items-center cursor-pointer"
-              >
-                <img src="/logo.png" alt="SkillPrep Logo" className="h-10 mr-2" />
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              {currentPhase === 'landing' ? (
-                <button 
-                  onClick={handleStartAssessment}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Start Assessment
-                </button>
-              ) : (
-                <button 
-                  onClick={handleStartNew}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Start New
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-0 py-0">
         {currentPhase === 'landing' && <LandingPage onStart={handleStartAssessment} />}
         {currentPhase === 'student_info' && <StudentForm />}
       </div>

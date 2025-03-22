@@ -1,8 +1,14 @@
 // Utility functions for the application
-import jsPDF from 'jspdf';
+import dynamic from 'next/dynamic';
 
 // Function to generate and download the Skills 2025 report as PDF
-export const downloadSkills2025Report = () => {
+export const downloadSkills2025Report = async () => {
+  // Only import jsPDF in the browser environment
+  if (typeof window === 'undefined') return;
+  
+  // Dynamically import jsPDF only on the client side
+  const { default: jsPDF } = await import('jspdf');
+  
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -203,11 +209,15 @@ export const showDownloadPopup = () => {
   document.body.appendChild(popup);
   
   // Add event listeners
-  document.getElementById('download-report-btn')?.addEventListener('click', () => {
-    downloadSkills2025Report();
-    setTimeout(() => {
-      popup.remove();
-    }, 1000);
+  document.getElementById('download-report-btn')?.addEventListener('click', async () => {
+    try {
+      await downloadSkills2025Report();
+      setTimeout(() => {
+        popup.remove();
+      }, 1000);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    }
   });
   
   document.getElementById('close-popup-btn')?.addEventListener('click', () => {

@@ -1,20 +1,45 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAssessmentStore } from '../lib/store';
+import { useStudentStore } from '../lib/studentStore';
 import { StudentInfo } from '../lib/types';
+import { Student } from '../lib/studentStore';
+import { supabaseService } from '../lib/supabaseService';
 
 export default function StudentForm() {
   const setStudentInfo = useAssessmentStore((state) => state.setStudentInfo);
   const setCurrentPhase = useAssessmentStore((state) => state.setCurrentPhase);
+  const { setStudent } = useStudentStore();
   
-  const [formData, setFormData] = useState<StudentInfo>({
+  const [formData, setFormData] = useState<StudentInfo & Partial<Student>>({
     name: '',
     email: '',
     currentRole: '',
     yearsOfExperience: 0,
     targetRole: '',
+    phone: '',
+    collegeName: '',
+    degree: '',
+    passingYear: new Date().getFullYear()
   });
+
+  // Load existing student data if available
+  useEffect(() => {
+    const { student } = useStudentStore.getState();
+    if (student) {
+      setFormData(prev => ({
+        ...prev,
+        name: student.name || '',
+        email: student.email || '',
+        phone: student.phone || '',
+        collegeName: student.collegeName || '',
+        degree: student.degree || '',
+        passingYear: student.passingYear || new Date().getFullYear(),
+        targetRole: student.domainInterest || ''
+      }));
+    }
+  }, []);
 
   const [errors, setErrors] = useState<Partial<StudentInfo>>({});
 
@@ -43,33 +68,110 @@ export default function StudentForm() {
       newErrors.targetRole = 'Target role is required';
     }
 
+    // Additional validations for student store fields
+    if (formData.phone && !/^\+?[1-9]\d{1,14}$/.test(formData.phone.replace(/\s+/g, ''))) {
+      newErrors.phone = 'Invalid phone number format';
+    }
+
+    if (formData.passingYear) {
+      const year = Number(formData.passingYear);
+      const currentYear = new Date().getFullYear();
+      if (year < 1900 || year > currentYear + 10) {
+        newErrors.passingYear = 'Invalid passing year';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      setStudentInfo(formData);
-      setCurrentPhase('assessment');
+      try {
+        // Check if student already exists
+        const { exists, error } = await supabaseService.checkStudentExists(formData.email);
+        
+        if (error) {
+          setErrors(prev => ({
+            ...prev,
+            email: 'Error checking email: ' + error
+          }));
+          return;
+        }
+        
+        if (exists) {
+          setErrors(prev => ({
+            ...prev,
+            email: 'A student with this email already exists. Please use a different email.'
+          }));
+          return;
+        }
+
+        // Update both assessment store and student store
+        setStudentInfo(formData);
+        
+        // Create student data object
+        const studentData: Student = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || '',
+          collegeName: formData.collegeName || '',
+          degree: formData.degree || '',
+          passingYear: formData.passingYear || new Date().getFullYear(),
+          domainInterest: formData.targetRole || ''
+        };
+        
+        // Update student store
+        setStudent(studentData);
+        
+        // Proceed to assessment
+        setCurrentPhase('assessment');
+      } catch (error) {
+        console.error('Error during form submission:', error);
+        setErrors(prev => ({
+          ...prev,
+          email: 'An unexpected error occurred. Please try again.'
+        }));
+      }
     }
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => {
+      const newData = {
+        ...prev,
+        [name]: value,
+      };
+      // Clear error when user starts typing
+      if (errors[name as keyof typeof errors]) {
+        setErrors(prev => ({
+          ...prev,
+          [name]: undefined
+        }));
+      }
+      return newData;
+    });
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numValue = Number(value) || 0;
-    setFormData((prev) => ({
-      ...prev,
-      yearsOfExperience: numValue,
-    }));
+    setFormData((prev) => {
+      const newData = {
+        ...prev,
+        [name]: numValue,
+      };
+      // Clear error when user starts typing
+      if (errors[name as keyof typeof errors]) {
+        setErrors(prev => ({
+          ...prev,
+          [name]: undefined
+        }));
+      }
+      return newData;
+    });
   };
 
   return (
@@ -255,4 +357,4 @@ export default function StudentForm() {
       </div>
     </div>
   );
-} 
+}

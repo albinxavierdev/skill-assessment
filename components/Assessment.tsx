@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAssessmentStore } from '../lib/store';
 import { useStudentStore } from '../lib/studentStore';
 import { calculateScores } from '../lib/gemini';
@@ -43,6 +43,10 @@ export default function Assessment() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const store = useAssessmentStore();
   const studentStore = useStudentStore();
@@ -53,6 +57,31 @@ export default function Assessment() {
   };
 
   const currentQuestion = questions[currentQuestionIndex];
+
+  // Timer effect - starts a 30-minute countdown when assessment loads
+  useEffect(() => {
+    // Only start the timer if we're not loading and have questions
+    if (!loading && questions.length > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            // Time's up - show warning and clear interval
+            clearInterval(timerRef.current as NodeJS.Timeout);
+            setShowTimeoutWarning(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    // Cleanup timer on unmount
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [loading, questions]);
 
   useEffect(() => {
     const loadQuestions = async () => {
@@ -102,6 +131,12 @@ export default function Assessment() {
         
         if (data.success && data.questions && data.questions.length > 0) {
           console.log('Successfully loaded questions:', data.questions.length);
+          
+          // Log the source of the questions (gemini or fallback)
+          if (data.source === 'fallback') {
+            console.log('Using fallback questions due to API issues');
+          }
+          
           // Update local state and store
           setQuestions(data.questions);
           setStoreQuestions({
@@ -183,6 +218,35 @@ export default function Assessment() {
     }
   };
 
+  // Handle exit assessment
+  const handleExitClick = () => {
+    setShowExitConfirmation(true);
+  };
+
+  const handleConfirmExit = () => {
+    // Reset the current phase to landing
+    store.setCurrentPhase('landing');
+    // Redirect to home page
+    window.location.href = '/';
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirmation(false);
+  };
+
+  // Format time remaining as MM:SS
+  const formatTimeRemaining = () => {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+  
+  // Handle timeout - close assessment and return to landing page
+  const handleTimeout = () => {
+    store.setCurrentPhase('landing');
+    window.location.href = '/';
+  };
+
   // Calculate progress
   const progress = ((SKILL_CATEGORIES.indexOf(currentCategory) * 5 + currentQuestionIndex + 1) / (SKILL_CATEGORIES.length * 5)) * 100;
   const isLastQuestion = currentQuestionIndex === questions.length - 1 && SKILL_CATEGORIES.indexOf(currentCategory) === SKILL_CATEGORIES.length - 1;
@@ -191,8 +255,28 @@ export default function Assessment() {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-700">Loading your personalized assessment...</p>
+          <div className="relative mx-auto mb-6 h-24 w-40">
+            {/* Wave animation container */}
+            <div className="absolute inset-0 flex items-end justify-around">
+              {/* Wave bars - 5 bars with different animation delays */}
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div 
+                  key={i}
+                  className="w-3 bg-gradient-to-t from-blue-600 to-indigo-500 rounded-full animate-wave" 
+                  style={{ 
+                    height: '30%', 
+                    animationDelay: `${i * 0.1}s`,
+                    animationDuration: '1s'
+                  }}
+                ></div>
+              ))}
+            </div>
+            
+            {/* Reflection effect */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-blue-100 to-transparent opacity-30 rounded-full"></div>
+          </div>
+          <p className="text-gray-700 mb-2">Loading your personalized assessment...</p>
+          <p className="text-sm text-gray-500 animate-pulse">Generating intelligent questions tailored to your profile</p>
         </div>
       </div>
     );
@@ -262,13 +346,80 @@ export default function Assessment() {
         </div>
       )}
 
+      {/* Timeout Warning Modal */}
+      {showTimeoutWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <div className="flex items-center justify-center mb-4 text-red-600">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">Time's Up!</h3>
+            <p className="text-gray-600 mb-6 text-center">
+              Your 30-minute assessment period has ended. Your progress will be saved.
+            </p>
+            <div className="flex justify-center">
+              <button
+                onClick={handleTimeout}
+                className="px-4 py-2 bg-red-600 border border-transparent rounded-md text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Return to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Exit Assessment?</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to exit? Your progress will not be saved.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleCancelExit}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmExit}
+                className="px-4 py-2 bg-red-600 border border-transparent rounded-md text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Exit Assessment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header with progress */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-2xl font-bold text-gray-900">Skill Assessment</h1>
-          <span className="text-sm font-medium text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1 rounded-full shadow-sm border border-blue-100">
-            {Math.round(progress)}% Complete
-          </span>
+          <div className="flex items-center space-x-3">
+            <div className={`text-sm font-medium px-3 py-1 rounded-full shadow-sm border ${timeRemaining < 300 ? 'text-red-600 bg-red-50 border-red-200 animate-pulse' : 'text-blue-600 bg-blue-50 border-blue-200'}`}>
+              <span className="flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {formatTimeRemaining()}
+              </span>
+            </div>
+            <button
+              onClick={handleExitClick}
+              className="text-sm font-medium text-red-600 hover:text-red-800 border border-red-200 hover:border-red-300 px-3 py-1 rounded-full shadow-sm bg-white transition-colors"
+            >
+              Exit Assessment
+            </button>
+            <span className="text-sm font-medium text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1 rounded-full shadow-sm border border-blue-100">
+              {Math.round(progress)}% Complete
+            </span>
+          </div>
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
           <div
@@ -359,19 +510,9 @@ export default function Assessment() {
           <div className="text-sm text-gray-600">
             {/* Remove the correct/incorrect text */}
           </div>
-          {selectedAnswer && (
-            <button
-              onClick={handleNext}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-md text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-            >
-              {isLastQuestion ? 'View Results' : 'Next Question'}
-              <svg className="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </button>
-          )}
+          {/* Removed the Next Question button since we auto-advance */}
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseService } from '../../../lib/supabaseService';
 import { Student } from '../../../lib/studentStore';
+import { supabaseAdmin } from '../../../lib/supabase';
 
 // Helper function to validate student data
 const validateStudentData = (data: any): { valid: boolean; errors?: string[] } => {
@@ -72,28 +73,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST handler to save a new student
+// POST handler to create a new student
 export async function POST(request: NextRequest) {
   try {
-    console.log('POST /api/students: Received request to save student data');
+    const studentData = await request.json();
+    console.log('POST /api/students: Creating new student:', studentData);
+    console.log('Request headers:', Object.fromEntries(request.headers.entries()));
     
-    let studentData: Student;
-    try {
-      studentData = await request.json();
-    } catch (error) {
-      console.error('POST /api/students: Invalid JSON in request body:', error);
+    // Basic validation
+    if (!studentData.name || !studentData.email) {
+      console.error('POST /api/students: Missing required fields');
       return NextResponse.json(
-        { success: false, error: 'Invalid JSON in request body' },
-        { status: 400 }
-      );
-    }
-    
-    // Validate student data
-    const validation = validateStudentData(studentData);
-    if (!validation.valid) {
-      console.error('POST /api/students: Invalid student data:', validation.errors);
-      return NextResponse.json(
-        { success: false, error: 'Invalid student data', details: validation.errors },
+        { success: false, error: 'Name and email are required' },
         { status: 400 }
       );
     }
@@ -108,22 +99,66 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('POST /api/students: Saving student data to database');
-    const result = await supabaseService.saveStudent(studentData);
+    console.log('POST /api/students: Validation passed, calling supabaseService.saveStudent');
+    
+    // Try direct insertion using admin client if service role key is available
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        // Map camelCase properties to database column names
+        const mappedStudent = {
+          name: studentData.name,
+          email: studentData.email,
+          phone: studentData.phone,
+          collegename: studentData.collegeName,
+          degree: studentData.degree,
+          passingyear: studentData.passingYear,
+          domaininterest: studentData.domainInterest,
+          created_at: new Date().toISOString(),
+        };
+        
+        console.log('Using admin client to bypass RLS, data:', mappedStudent);
+        
+        const { data, error } = await supabaseAdmin
+          .from('students')
+          .insert([mappedStudent])
+          .select('id')
+          .single();
+          
+        if (error) {
+          console.error('Error using admin client:', error);
+          // Fall back to regular service
+        } else {
+          console.log('Successfully created student with admin client, ID:', data.id);
+          return NextResponse.json({ 
+            success: true, 
+            id: data.id,
+            student: studentData
+          });
+        }
+      } catch (adminError) {
+        console.error('Exception using admin client:', adminError);
+        // Fall back to regular service
+      }
+    }
+    
+    // Create student in database using regular service
+    const result = await supabaseService.saveStudent(studentData as Student);
+    
+    console.log('POST /api/students: supabaseService.saveStudent returned:', result);
     
     if (!result.success) {
-      console.error('POST /api/students: Failed to save student data:', result.error);
+      console.error('POST /api/students: Failed to create student:', result.error);
       return NextResponse.json(
-        { success: false, error: result.error || 'Failed to save student data' },
+        { success: false, error: result.error || 'Failed to create student' },
         { status: 500 }
       );
     }
     
-    console.log('POST /api/students: Successfully saved student data with ID:', result.id);
+    console.log('POST /api/students: Successfully created student with ID:', result.id);
     return NextResponse.json({ 
       success: true, 
-      message: 'Student data saved successfully',
-      id: result.id 
+      id: result.id,
+      student: studentData
     });
   } catch (error) {
     console.error('Unhandled error in POST /api/students:', error);

@@ -90,4 +90,9 @@ body {
 
 .animate-fade-in {
   animation: fade-in 0.8s ease-out forwards;
+}
+
+/* Add this at the top of the file */
+html {
+  scroll-behavior: smooth;
 } 

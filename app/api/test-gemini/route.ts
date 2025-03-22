@@ -1,62 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function GET(request: NextRequest) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
 
   if (!GEMINI_API_KEY) {
+    console.error('GEMINI_API_KEY is not set in environment variables');
     return NextResponse.json({ error: 'GEMINI_API_KEY is not set in environment variables' }, { status: 500 });
   }
 
   try {
-    console.log('Testing Gemini API connection...');
-    console.log('API URL:', GEMINI_API_URL);
+    // Initialize the Google Generative AI with the API key
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: "Hello, please respond with a simple 'Hello, I am Gemini!' to test the connection." }
-            ]
-          }
-        ],
-        generation_config: {
-          temperature: 0.7,
-          top_k: 40,
-          top_p: 0.95,
-          max_output_tokens: 256,
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error response:', errorText);
-      return NextResponse.json({ 
-        error: `Gemini API error: ${response.statusText}`, 
-        details: errorText,
-        url: GEMINI_API_URL
-      }, { status: 500 });
-    }
-
-    const data = await response.json();
-    console.log('Gemini API response received');
+    // Get the generative model
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
+    // Generate a simple test response
+    const result = await model.generateContent('Hello, please respond with a simple "Gemini API is working correctly!" if you receive this message.');
+    const response = result.response;
+    const text = response.text();
+    
+    console.log('Successfully tested Gemini API connection');
     
     return NextResponse.json({ 
       success: true, 
-      message: data.candidates[0].content.parts[0].text,
-      apiUrl: GEMINI_API_URL
+      message: text,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error testing Gemini API:', error);
+    console.error('Error testing Gemini API connection:', error);
     return NextResponse.json({ 
-      error: `Error testing Gemini API: ${error}`,
-      apiUrl: GEMINI_API_URL
+      error: `Error testing Gemini API connection: ${error}`,
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
-} 
+}

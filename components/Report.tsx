@@ -15,15 +15,20 @@ import jsPDF from 'jspdf';
 
 // Define the extended Report type to match what's actually in the API response
 interface ExtendedReport {
-  overallScore: number;
-  summary: string;
+  executiveSummary: string;
+  overallScore?: number;
+  summary?: string;
   categoryAnalysis: {
     [key: string]: {
       score: number;
+      weight?: number;
       analysis: string;
       recommendations: string[];
     };
   };
+  recommendations?: string[];
+  learningResources?: string[];
+  careerPathSuggestions?: string[];
   actionPlan: {
     [key: string]: string[];
   };
@@ -73,6 +78,11 @@ export default function Report() {
         
         if (data.error) {
           throw new Error(data.error);
+        }
+        
+        // Log the source of the report (gemini or fallback)
+        if (data.source === 'fallback') {
+          console.log('Using fallback report generation due to API issues');
         }
         
         // The API returns a report with the ExtendedReport structure
@@ -191,7 +201,12 @@ export default function Report() {
 
   // Use a type assertion to treat the report as ExtendedReport
   const report = store.report as unknown as ExtendedReport;
-  const overallScore = report?.overallScore || 0;
+  
+  // Calculate overall score if not provided directly
+  const overallScore = report?.overallScore || 
+    (Object.entries(scores).length > 0 ? 
+      Object.values(scores).reduce((sum, score) => sum + score, 0) / Object.values(scores).length : 0);
+  
   const performanceLevel = getPerformanceLevel(overallScore);
 
   return (
@@ -264,7 +279,7 @@ export default function Report() {
           <h2 className="text-xl font-semibold text-white">Executive Summary</h2>
         </div>
         <div className="p-6">
-          <p className="text-gray-700 whitespace-pre-line">{report?.summary || ''}</p>
+          <p className="text-gray-700 whitespace-pre-line">{report?.executiveSummary || report?.summary || ''}</p>
         </div>
       </div>
 
@@ -516,4 +531,4 @@ function formatMonth(month: string): string {
     default:
       return month;
   }
-} 
+}
