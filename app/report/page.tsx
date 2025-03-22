@@ -25,7 +25,8 @@ export default function ReportPage() {
         case 'student_info':
           router.push('/form');
           break;
-x          router.push('/assessment');
+        case 'assessment':
+          router.push('/assessment');
           break;
       }
     }
@@ -51,4 +52,4 @@ x          router.push('/assessment');
       <Report />
     </div>
   );
-} 
+}

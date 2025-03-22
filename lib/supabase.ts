@@ -11,7 +11,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create a single supabase client for interacting with your database
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+  db: {
+    pool: {
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    }
+  },
+  global: {
+    headers: { 'X-Client-Info': 'skillprep-app/1.0' }
+  }
+});
 
 // Create a service role client for admin operations (bypasses RLS)
 // This should only be used on the server side
@@ -36,4 +47,4 @@ export const testConnection = async () => {
     console.error('Supabase connection test failed:', error);
     return { success: false, error };
   }
-}; 
+};

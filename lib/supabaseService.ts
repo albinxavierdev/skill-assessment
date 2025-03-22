@@ -67,6 +67,7 @@ export const supabaseService = {
         degree: student.degree,
         passingyear: student.passingYear, // Using camelCase for database columns
         domaininterest: student.domainInterest, // Using camelCase for database columns
+        assessment_pdf: student.assessmentPdf, // PDF data in BYTEA format
         created_at: new Date().toISOString(),
       };
 
@@ -139,6 +140,37 @@ export const supabaseService = {
   },
 
   /**
+   * Update student PDF data
+   */
+  async updateStudentPdf(studentId: string, pdfBuffer: Buffer) {
+    try {
+      console.log(`Updating PDF for student with ID ${studentId}`);
+      
+      // Get the appropriate client
+      const client = getClient();
+      
+      const { error } = await client
+        .from(STUDENTS_TABLE)
+        .update({ assessment_pdf: pdfBuffer })
+        .eq('id', studentId);
+
+      if (error) {
+        console.error(`Error updating PDF for student with ID ${studentId}:`, error);
+        return { success: false, error: error.message };
+      }
+
+      console.log(`Successfully updated PDF for student with ID ${studentId}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`Unexpected error updating PDF for student with ID ${studentId}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  },
+
+  /**
    * Get a student by ID
    */
   async getStudentById(id: string) {
@@ -188,6 +220,7 @@ export const supabaseService = {
         degree: student.degree,
         passingyear: student.passingYear, // Using camelCase for database columns
         domaininterest: student.domainInterest, // Using camelCase for database columns
+        assessment_pdf: student.assessmentPdf, // PDF data in BYTEA format
         created_at: new Date().toISOString(),
       };
       
@@ -303,4 +336,4 @@ export const supabaseService = {
       };
     }
   }
-}; 
+};

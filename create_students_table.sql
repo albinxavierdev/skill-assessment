@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS students (
   degree TEXT NOT NULL,
   passingyear TEXT NOT NULL,
   domaininterest TEXT NOT NULL,
+  assessment_pdf BYTEA,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -46,4 +47,4 @@ CREATE POLICY update_students ON students
   FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
-*/ 
+*/
